@@ -4,7 +4,7 @@
 
 [![CI](https://github.com/PyOrchestrator/PyOrchestrator/actions/workflows/ci.yml/badge.svg)](https://github.com/PyOrchestrator/PyOrchestrator/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/PyOrchestrator/PyOrchestrator?label=release&color=22d3ee)](https://github.com/PyOrchestrator/PyOrchestrator/releases/tag/v0.1.0)
-[![License: MIT](https://img.shields.io/badge/License-MIT-cyan.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-22d3ee)](https://pyorchestrator.github.io/PyOrchestrator/)
 
 **SCADA/CMS platform** for creating, scheduling, running, and monitoring thousands of isolated Python scripts and bots — inside a fixed Docker Compose stack.
@@ -129,4 +129,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Security issues: [SECURITY.md](SECURITY.
 
 ## License
 
-[MIT](LICENSE)
+[Apache License 2.0](LICENSE)

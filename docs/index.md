@@ -13,7 +13,7 @@ layout: default
       <img src="https://img.shields.io/github/v/release/{{ site.github_org }}/{{ site.github_repo }}?label=release&amp;color=22d3ee" alt="Release v0.1.0" width="88" height="20">
     </a>
     <a href="https://github.com/{{ site.github_org }}/{{ site.github_repo }}/blob/main/LICENSE" target="_blank" rel="noopener">
-      <img src="https://img.shields.io/badge/License-MIT-cyan.svg" alt="MIT License" width="88" height="20">
+      <img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="Apache License 2.0" width="120" height="20">
     </a>
     <a href="{{ '/' | relative_url }}">
       <img src="https://img.shields.io/badge/docs-GitHub%20Pages-22d3ee" alt="GitHub Pages" width="120" height="20">
@@ -105,4 +105,4 @@ PyOrchestrator/
 
 ## Лицензия
 
-[MIT License](https://github.com/PyOrchestrator/PyOrchestrator/blob/main/LICENSE)
+[Apache License 2.0](https://github.com/PyOrchestrator/PyOrchestrator/blob/main/LICENSE)
