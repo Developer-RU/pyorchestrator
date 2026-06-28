@@ -1,5 +1,6 @@
 import io
 import json
+import re
 import zipfile
 from io import BytesIO
 from uuid import UUID
@@ -8,7 +9,7 @@ import redis.asyncio as aioredis
 from minio import Minio
 from datetime import datetime, timezone
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -17,7 +18,7 @@ from app.core.crypto import decrypt_secret, encrypt_secret
 from app.models.enums import RunStatus, ScriptStatus, TriggerType
 from app.models.run import Run, RunLog, Schedule
 from app.models.script import Script, ScriptFile, ScriptSecret
-from app.models.user import Group
+from app.services.notification_service import dispatch_run_event_notifications
 
 
 class RedisService:
@@ -78,6 +79,29 @@ class StorageService:
 
 
 storage_service = StorageService()
+
+_SAFE_PATH = re.compile(r"^[a-zA-Z0-9_./-]+$")
+
+
+def normalize_file_path(path: str) -> str:
+    normalized = path.strip().replace("\\", "/").lstrip("/")
+    if not normalized or ".." in normalized.split("/"):
+        raise ValueError("Invalid file path")
+    if not _SAFE_PATH.match(normalized):
+        raise ValueError("Invalid file path")
+    return normalized
+
+
+def ordered_file_paths(script: Script) -> list[str]:
+    order = (script.metadata_ or {}).get("file_order", [])
+    paths = [f.path for f in script.files]
+    if not order:
+        return sorted(paths)
+    ordered = [p for p in order if p in paths]
+    for path in sorted(paths):
+        if path not in ordered:
+            ordered.append(path)
+    return ordered
 
 
 async def slugify(name: str, db: AsyncSession) -> str:
@@ -193,6 +217,7 @@ async def queue_run(
     )
     db.add(run)
     await db.flush()
+    await dispatch_run_event_notifications(db, run, "queued")
 
     main_content = ""
     for f in script.files:
@@ -251,3 +276,71 @@ async def import_script_zip(db: AsyncSession, data: bytes, group_id: UUID | None
             group_id=group_id,
             files=files,
         )
+
+
+async def delete_script_record(db: AsyncSession, script: Script) -> None:
+    await db.execute(delete(Run).where(Run.script_id == script.id))
+    await db.delete(script)
+    await redis_service.publish(settings.script_updated_channel, str(script.id))
+
+
+async def create_script_file(
+    db: AsyncSession, script: Script, path: str, content: str = ""
+) -> ScriptFile:
+    file_path = normalize_file_path(path)
+    if any(f.path == file_path for f in script.files):
+        raise ValueError("File already exists")
+
+    sf = ScriptFile(
+        script_id=script.id,
+        path=file_path,
+        content=content,
+        size_bytes=len(content.encode()),
+        file_type="requirements" if file_path.endswith("requirements.txt") else "source",
+    )
+    db.add(sf)
+    storage_service.put_file(script.id, file_path, content.encode())
+
+    order = list(ordered_file_paths(script))
+    order.append(file_path)
+    script.metadata_ = {**(script.metadata_ or {}), "file_order": order}
+    script.version += 1
+    await db.flush()
+    await redis_service.publish(settings.script_updated_channel, str(script.id))
+    return sf
+
+
+async def delete_script_file(db: AsyncSession, script: Script, path: str) -> None:
+    file_path = normalize_file_path(path)
+    if len(script.files) <= 1:
+        raise ValueError("Cannot delete the only file")
+    if file_path == script.entrypoint:
+        raise ValueError("Cannot delete entrypoint file")
+
+    sf = next((f for f in script.files if f.path == file_path), None)
+    if not sf:
+        raise ValueError("File not found")
+
+    await db.delete(sf)
+    try:
+        key = f"{storage_service.script_prefix(script.id)}{file_path}"
+        storage_service.client.remove_object(settings.minio_bucket, key)
+    except Exception:
+        pass
+
+    order = [p for p in ordered_file_paths(script) if p != file_path]
+    script.metadata_ = {**(script.metadata_ or {}), "file_order": order}
+    script.version += 1
+    await db.flush()
+    await redis_service.publish(settings.script_updated_channel, str(script.id))
+
+
+async def reorder_script_files(db: AsyncSession, script: Script, paths: list[str]) -> list[str]:
+    known = {f.path for f in script.files}
+    if set(paths) != known:
+        raise ValueError("File order must include all script files")
+    script.metadata_ = {**(script.metadata_ or {}), "file_order": paths}
+    script.version += 1
+    await db.flush()
+    await redis_service.publish(settings.script_updated_channel, str(script.id))
+    return paths

@@ -1,39 +1,55 @@
 # PyOrchestrator
 
+[![CI](https://github.com/pyorchestrator/pyorchestrator/actions/workflows/ci.yml/badge.svg)](https://github.com/pyorchestrator/pyorchestrator/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-cyan.svg)](LICENSE)
+[![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-22d3ee)](https://pyorchestrator.github.io/pyorchestrator/)
+
 **SCADA/CMS platform** for creating, scheduling, running, and monitoring thousands of isolated Python scripts and bots — inside a fixed Docker Compose stack.
 
 > One Runtime Engine. Many sandboxes. Zero per-script containers.
+
+**Документация:** https://pyorchestrator.github.io/pyorchestrator/
 
 ## Architecture
 
 | Service | Description |
 |---------|-------------|
 | `backend` | FastAPI — REST, WebSocket, RBAC, secrets, backups |
-| `frontend` | React + MUI + Monaco — dashboard & script editor |
+| `frontend` | React + Tailwind + Monaco + Recharts — control plane UI |
 | `runtime` | Python sandbox supervisor (subprocess + venv + rlimits) |
-| `scheduler` | APScheduler — cron, intervals, webhooks, events |
+| `scheduler` | APScheduler — cron, intervals, webhooks |
 | `postgres` | Metadata, runs, users, schedules |
 | `redis` | Job queue, pub/sub, cache |
 | `minio` | Script workspaces, assets, backups |
 | `prometheus` + `grafana` + `loki` | Metrics & logs |
+| `mcp` | MCP server for AI agents (port 8010) |
 
-See [docs/architecture.md](docs/architecture.md) for full design.
+See [Architecture](https://pyorchestrator.github.io/pyorchestrator/architecture/) for full design.
+
+### AI agents (MCP)
+
+PyOrchestrator exposes an [MCP server](mcp/README.md) so Cursor and other agents can list scripts, run jobs, read logs, manage schedules and secrets. See [mcp/cursor-mcp.example.json](mcp/cursor-mcp.example.json) for Cursor setup.
 
 ## Quick Start
 
 ```bash
+git clone https://github.com/pyorchestrator/pyorchestrator.git
+cd pyorchestrator
 cp .env.example .env
 docker compose up --build
 ```
 
 | URL | Service |
 |-----|---------|
-| http://localhost:5173 | Frontend UI |
+| http://localhost:5173 | Control Plane UI |
 | http://localhost:8000/docs | API (Swagger) |
 | http://localhost:8000/health | Health check |
 | http://localhost:3000 | Grafana (admin/admin) |
 | http://localhost:9090 | Prometheus |
 | http://localhost:9001 | MinIO Console |
+| http://localhost:8010/mcp | MCP server (streamable HTTP) |
+
+**Default login:** `admin@pyorchestrator.local` / `admin` — change password and `.env` secrets before production.
 
 ## Project Structure
 
@@ -43,20 +59,19 @@ pyorchestrator/
 │   └── app/
 │       ├── api/v1/    # REST routers
 │       ├── core/      # config, security
-│       ├── models/    # SQLAlchemy ORM (MVP-1)
+│       ├── models/    # SQLAlchemy ORM
 │       ├── schemas/   # Pydantic DTOs
 │       └── services/  # business logic + UpdateProvider
-├── frontend/          # React + TypeScript + Vite + MUI
+├── frontend/          # React + TypeScript + Vite + Tailwind
 ├── runtime/           # Sandbox engine
 │   └── engine/
 │       ├── sandbox.py # isolation layer
 │       └── main.py    # Redis queue consumer
 ├── scheduler/         # APScheduler service
-├── infrastructure/  # Prometheus, Grafana, Loki configs
-├── docs/
-│   ├── architecture.md
-│   ├── database-er.md
-│   └── roadmap.md
+├── mcp/               # MCP server for AI agents
+├── infrastructure/    # Prometheus, Grafana, Loki configs
+├── docs/              # Documentation (GitHub Pages / Jekyll)
+├── wiki/              # Copy for GitHub Wiki
 ├── docker-compose.yml
 └── docker-compose.prod.yml
 ```
@@ -65,15 +80,25 @@ pyorchestrator/
 
 1. **No per-script containers** — all scripts run as isolated subprocess sandboxes inside `runtime`.
 2. **Dynamic updates** — save script in UI → Redis event → runtime invalidates venv → no restart.
-3. **Horizontal scale** — add `runtime` replicas sharing Redis queue (Production).
+3. **Horizontal scale** — add `runtime` replicas sharing Redis queue (`docker-compose.prod.yml`).
 4. **Secrets vault** — encrypted per-script; injected at run time, never in code.
 5. **OTA updates** — abstract `UpdateProvider`; `GitHubUpdateProvider` stub ready.
 
 ## Documentation
 
-- [System Architecture](docs/architecture.md)
-- [Database ER Diagram](docs/database-er.md)
-- [MVP & Production Roadmap](docs/roadmap.md)
+| Topic | Link |
+|-------|------|
+| Quick start | [getting-started](https://pyorchestrator.github.io/pyorchestrator/getting-started/) |
+| Architecture | [architecture](https://pyorchestrator.github.io/pyorchestrator/architecture/) |
+| Control Plane UI | [control-plane](https://pyorchestrator.github.io/pyorchestrator/control-plane/) |
+| Runtime & sandbox | [runtime](https://pyorchestrator.github.io/pyorchestrator/runtime/) |
+| MCP for AI agents | [mcp](https://pyorchestrator.github.io/pyorchestrator/mcp/) |
+| API reference | [api-reference](https://pyorchestrator.github.io/pyorchestrator/api-reference/) |
+| Deployment | [deployment](https://pyorchestrator.github.io/pyorchestrator/deployment/) |
+| Configuration | [configuration](https://pyorchestrator.github.io/pyorchestrator/configuration/) |
+| Security | [security](https://pyorchestrator.github.io/pyorchestrator/security/) |
+| Roadmap | [roadmap](https://pyorchestrator.github.io/pyorchestrator/roadmap/) |
+| Troubleshooting | [troubleshooting](https://pyorchestrator.github.io/pyorchestrator/troubleshooting/) |
 
 ## Development Status
 
@@ -85,7 +110,21 @@ pyorchestrator/
 | MVP-3 Editor + RBAC | ✅ Done |
 | Production-1 Secrets + Backups | ✅ Done |
 | Production-2 Scale + OTA | ✅ Stub ready |
+| Production-3 Enterprise | 🔜 Backlog |
+
+## Publishing to GitHub
+
+1. Create organization **pyorchestrator** on GitHub
+2. Create repository **pyorchestrator** (public)
+3. Push this repo: `git remote add origin git@github.com:pyorchestrator/pyorchestrator.git && git push -u origin main`
+4. **Settings → Pages → Build and deployment:** GitHub Actions (workflow `Deploy GitHub Pages`)
+5. Optional: enable Wiki and import pages from `wiki/`
+6. Create release tag `v0.1.0` from [CHANGELOG.md](CHANGELOG.md)
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Security issues: [SECURITY.md](SECURITY.md).
 
 ## License
 
-MIT
+[MIT](LICENSE)

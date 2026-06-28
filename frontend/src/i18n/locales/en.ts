@@ -131,6 +131,64 @@ export const en = {
       description: "CPU, memory, logs and custom dashboards via Grafana.",
       openGrafana: "Open Grafana",
     },
+    charts: {
+      total24h: "Total 24h",
+      lastHour: "Last hour",
+      peak24h: "Peak 24h",
+      avg24h: "Avg 24h",
+      execution: {
+        title: "Run activity",
+        subtitle: "Runs, errors and successes per hour",
+      },
+      capacity: {
+        title: "Capacity & schedules",
+        subtitle: "Concurrent sandboxes and scheduled triggers",
+      },
+      resources: {
+        title: "Sandbox resources",
+        subtitle: "CPU and memory usage",
+      },
+      io: {
+        title: "Connections & I/O",
+        subtitle: "Network and disk activity",
+      },
+      runs: {
+        title: "Runs",
+        subtitle: "Queued per hour",
+      },
+      errors: {
+        title: "Errors",
+        subtitle: "Failures & timeouts",
+      },
+      successes: {
+        title: "Successes",
+        subtitle: "Completed runs",
+      },
+      load: {
+        title: "Load",
+        subtitle: "Concurrent sandboxes",
+      },
+      schedules: {
+        title: "Schedules",
+        subtitle: "Runs triggered by cron, interval & webhooks",
+      },
+      cpu: {
+        title: "CPU",
+        subtitle: "Sandbox CPU %",
+      },
+      memory: {
+        title: "Memory",
+        subtitle: "Sandbox RAM (MB)",
+      },
+      network: {
+        title: "Network",
+        subtitle: "Open connections",
+      },
+      disk: {
+        title: "Disk I/O",
+        subtitle: "Open file handles",
+      },
+    },
   },
   scripts: {
     title: "Scripts",
@@ -145,6 +203,8 @@ export const en = {
     empty: "No scripts yet — create your first automation",
     confirmDelete: "Delete script “{name}”? This cannot be undone.",
     confirmBulkDelete: "Delete {count} script(s)? This cannot be undone.",
+    deleted: "Script “{name}” deleted",
+    deleteFailed: "Failed to delete script",
   },
   groups: {
     title: "Groups",
@@ -182,6 +242,7 @@ export const en = {
     empty: "No schedules configured",
     confirmDelete: "Delete schedule “{name}”?",
     confirmBulkDelete: "Delete {count} schedule(s)?",
+    deleteFailed: "Failed to delete schedule",
     modal: {
       selectScript: "Select script…",
       namePlaceholder: "Daily sync",
@@ -223,8 +284,8 @@ export const en = {
     },
   },
   users: {
-    title: "Users",
-    titleFull: "Users & roles",
+    title: "Users & groups",
+    titleFull: "Users & groups",
     subtitle: "Access control",
     create: "New user",
     edit: "Edit user",
@@ -259,6 +320,22 @@ export const en = {
     loading: "Loading editor…",
     explorer: "Explorer",
     filterFiles: "Filter files…",
+    addFile: "Add file",
+    createFile: "New file",
+    importFromDisk: "From disk",
+    deleteFile: "Delete file",
+    newFilePlaceholder: "path/to/file.py",
+    entrypoint: "main",
+    confirmDeleteFile: "Delete file “{name}”?",
+    cannotDeleteEntrypoint: "Cannot delete the entrypoint file",
+    cannotDeleteOnlyFile: "Cannot delete the only file",
+    noFilesMatch: "No files match filter",
+    dropFilesHint: "Drop files here to add them",
+    fileAdded: "File “{name}” added",
+    fileDeleted: "File “{name}” deleted",
+    filesImported: "{count} file(s) imported",
+    fileAddFailed: "Failed to add file",
+    fileDeleteFailed: "Failed to delete file",
     output: "Output",
     lines: "{count} lines",
     outputEmpty: "Run script to see output…",
@@ -288,6 +365,11 @@ export const en = {
   scriptCard: {
     group: "Group · {name}",
     runScript: "Run script",
+    stopScript: "Stop script",
+    runStatus: {
+      running: "Running",
+      queued: "Queued",
+    },
     deleteScript: "Delete script",
   },
   permissions: {
@@ -319,7 +401,7 @@ export const en = {
   },
   nav: {
     sections: {
-      overview: "Overview",
+      overview: "Main",
       automation: "Automation",
       operations: "Operations",
       system: "System",
@@ -331,8 +413,110 @@ export const en = {
     webhooks: "Webhooks",
     alerts: "Alerts",
     backups: "Backups",
-    users: "Users",
+    users: "Users & groups",
     settings: "Settings",
+    system: "System information",
+    mcp: "MCP Server",
+  },
+  mcp: {
+    title: "MCP Server",
+    subtitle: "AI agents · Cursor · automation API",
+    copied: "Copied to clipboard",
+    copyUrl: "Copy HTTP URL",
+    metrics: {
+      status: "Status",
+      transport: "Transport",
+      tools: "Tools",
+      resource: "Resource",
+    },
+    endpoint: {
+      title: "HTTP endpoint",
+      subtitle: "Streamable HTTP transport (Docker)",
+      hint: "Use this URL when connecting from Cursor or other MCP clients over HTTP. For local development without Docker, run stdio mode from the mcp/ folder.",
+    },
+    cursor: {
+      title: "Cursor configuration",
+      subtitle: "Add to Settings → MCP or ~/.cursor/mcp.json",
+      stdio: "Stdio (local)",
+      http: "HTTP (Docker)",
+      stdioHint: "Install with pip install -e ./mcp and point cwd to your project mcp folder.",
+      httpHint: "Requires docker compose service mcp on port 8010.",
+    },
+    tools: {
+      title: "Available tools",
+      subtitle: "Operations exposed to AI agents",
+      columns: {
+        name: "Tool",
+        category: "Category",
+        description: "Description",
+      },
+    },
+  },
+  system: {
+    title: "System information",
+    subtitle: "Platform status & infrastructure",
+    cards: {
+      application: {
+        title: "Application",
+        version: "Version",
+        environment: "Environment",
+        uptime: "Uptime",
+      },
+      services: {
+        title: "Services",
+        subtitle: "Health checks",
+      },
+      runtime: {
+        title: "Runtime",
+        subtitle: "Execution queue",
+        queued: "Queued runs",
+        running: "Running now",
+        totalRuns: "Total runs",
+        queueKey: "Queue key",
+      },
+      assets: {
+        title: "Assets",
+        subtitle: "Scripts & groups",
+        scripts: "Scripts",
+        enabled: "Enabled",
+        groups: "Groups",
+      },
+      automation: {
+        title: "Automation",
+        subtitle: "Schedules & webhooks",
+        schedules: "Schedules",
+        schedulesActive: "Active schedules",
+        webhooks: "Webhooks",
+      },
+      users: {
+        title: "Users",
+        subtitle: "Access & alerts",
+        total: "Total users",
+        active: "Active users",
+        unreadAlerts: "Unread alerts",
+      },
+      storage: {
+        title: "Storage",
+        subtitle: "Object storage",
+        bucket: "MinIO bucket",
+        service: "MinIO status",
+      },
+      network: {
+        title: "Network",
+        subtitle: "API access",
+        cors: "CORS origins",
+      },
+      started: {
+        title: "Backend started",
+        subtitle: "Current process",
+      },
+    },
+    resources: {
+      title: "Host resources",
+      subtitle: "Memory and disk on the backend host",
+      memory: "RAM",
+      disk: "Disk",
+    },
   },
   settings: {
     title: "Settings",

@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import Annotated
 from uuid import UUID
 
@@ -11,6 +12,7 @@ from app.models.enums import RunStatus
 from app.models.run import Run
 from app.models.user import User
 from app.schemas import RunLogResponse, RunResponse
+from app.services.notification_service import dispatch_run_event_notifications
 from app.services.script_service import get_script_or_404, queue_run, redis_service
 
 router = APIRouter()
@@ -37,12 +39,18 @@ async def stop_script(
     _: Annotated[User, Depends(require_permission("scripts:run"))],
 ):
     result = await db.execute(
-        select(Run).where(Run.script_id == script_id, Run.status == RunStatus.RUNNING.value)
+        select(Run).where(
+            Run.script_id == script_id,
+            Run.status.in_([RunStatus.RUNNING.value, RunStatus.QUEUED.value]),
+        )
     )
     runs = result.scalars().all()
     for run in runs:
         await redis_service.publish(f"run:{run.id}:control", "stop")
         run.status = RunStatus.CANCELLED.value
+        run.finished_at = datetime.now(timezone.utc)
+        await dispatch_run_event_notifications(db, run, "cancelled")
+    await db.flush()
     return {"stopped": len(runs)}
 
 

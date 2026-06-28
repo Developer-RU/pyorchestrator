@@ -103,6 +103,15 @@ class ScriptUpdate(BaseModel):
     max_memory_bytes: int | None = None
 
 
+class ActiveRunSummary(BaseModel):
+    id: UUID
+    status: str
+    started_at: datetime | None
+    queued_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 class ScriptResponse(BaseModel):
     id: UUID
     name: str
@@ -116,8 +125,10 @@ class ScriptResponse(BaseModel):
     max_concurrent_runs: int
     max_runtime_seconds: int
     max_memory_bytes: int
+    metadata: dict = Field(default_factory=dict, validation_alias="metadata_")
+    active_run: ActiveRunSummary | None = None
 
-    model_config = {"from_attributes": True}
+    model_config = {"from_attributes": True, "populate_by_name": True}
 
 
 class ScriptFileResponse(BaseModel):
@@ -132,6 +143,15 @@ class ScriptFileResponse(BaseModel):
 
 class ScriptFileUpdate(BaseModel):
     content: str
+
+
+class ScriptFileCreate(BaseModel):
+    path: str
+    content: str = ""
+
+
+class ScriptFileOrderUpdate(BaseModel):
+    paths: list[str]
 
 
 class RunResponse(BaseModel):
@@ -287,6 +307,80 @@ class DashboardStats(BaseModel):
     completed_tasks: int
     active_cron_jobs: int
     running_now: int
+
+
+class DashboardTimeseries(BaseModel):
+    labels: list[str]
+    runs: list[int]
+    errors: list[int]
+    successes: list[int]
+    load: list[int]
+    schedules: list[int]
+    cpu: list[float]
+    memory_mb: list[float]
+    network: list[float]
+    disk_io: list[float]
+
+
+class SystemServiceStatus(BaseModel):
+    name: str
+    status: str
+
+
+class SystemCounts(BaseModel):
+    scripts: int
+    scripts_enabled: int
+    groups: int
+    users: int
+    users_active: int
+    schedules: int
+    schedules_active: int
+    webhooks: int
+    runs_total: int
+    runs_queued: int
+    runs_running: int
+    notifications_unread: int
+
+
+class SystemConfigInfo(BaseModel):
+    runtime_queue: str
+    minio_bucket: str
+    cors_origins: list[str]
+
+
+class SystemResources(BaseModel):
+    memory_total_mb: float = 0
+    memory_used_mb: float = 0
+    memory_percent: float = 0
+    disk_total_gb: float = 0
+    disk_used_gb: float = 0
+    disk_percent: float = 0
+
+
+class SystemInfoResponse(BaseModel):
+    name: str
+    version: str
+    environment: str
+    uptime_seconds: int
+    started_at: str
+    services: dict[str, str]
+    counts: SystemCounts
+    config: SystemConfigInfo
+    resources: SystemResources
+
+
+class McpToolInfo(BaseModel):
+    name: str
+    category: str
+    description: str
+
+
+class McpInfoResponse(BaseModel):
+    status: str
+    transport: str
+    http_url: str
+    tools: list[McpToolInfo]
+    resource: str
 
 
 class TemplateResponse(BaseModel):

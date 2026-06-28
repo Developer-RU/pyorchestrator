@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from typing import Annotated
 
-from app.api.v1 import auth, editor, groups, misc, runs, scripts, system, users, webhooks
+from app.api.v1 import auth, editor, groups, mcp, misc, runs, scripts, system, users, webhooks
 from app.core.deps import verify_internal_key
 
 api_router = APIRouter()
@@ -9,6 +9,7 @@ api_router = APIRouter()
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(users.router, tags=["users"])
 api_router.include_router(system.router, prefix="/system", tags=["system"])
+api_router.include_router(mcp.router, prefix="/mcp", tags=["mcp"])
 api_router.include_router(scripts.router, prefix="/scripts", tags=["scripts"])
 api_router.include_router(runs.router, prefix="/runs", tags=["runs"])
 api_router.include_router(groups.groups_router, tags=["groups"])

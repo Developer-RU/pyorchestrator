@@ -10,21 +10,66 @@ from sqlalchemy.orm import selectinload
 from app.core.config import settings
 from app.core.deps import get_current_user, require_permission
 from app.db.session import get_db
-from app.models.enums import ScriptStatus
+from app.models.enums import RunStatus, ScriptStatus
+from app.models.run import Run
 from app.models.script import Script, ScriptFile, ScriptTemplate
 from app.models.user import User
-from app.schemas import ScriptCreate, ScriptFileResponse, ScriptFileUpdate, ScriptResponse, ScriptUpdate, TemplateResponse
+from app.schemas import (
+    ActiveRunSummary,
+    ScriptCreate,
+    ScriptFileCreate,
+    ScriptFileOrderUpdate,
+    ScriptFileResponse,
+    ScriptFileUpdate,
+    ScriptResponse,
+    ScriptUpdate,
+    TemplateResponse,
+)
 from app.services.script_service import (
     create_script,
+    create_script_file,
+    delete_script_file,
+    delete_script_record,
     export_script_zip,
     get_script_or_404,
     import_script_zip,
+    ordered_file_paths,
     queue_run,
     redis_service,
+    reorder_script_files,
     storage_service,
 )
 
 router = APIRouter()
+
+
+def _attach_active_runs(scripts: list[Script], active_by_script: dict) -> list[ScriptResponse]:
+    return [
+        ScriptResponse.model_validate(s).model_copy(
+            update={
+                "active_run": ActiveRunSummary.model_validate(active_by_script[s.id])
+                if s.id in active_by_script
+                else None,
+            }
+        )
+        for s in scripts
+    ]
+
+
+async def _load_active_runs(db: AsyncSession, script_ids: list[UUID]) -> dict:
+    if not script_ids:
+        return {}
+    runs_result = await db.execute(
+        select(Run)
+        .where(Run.script_id.in_(script_ids))
+        .where(Run.status.in_([RunStatus.RUNNING.value, RunStatus.QUEUED.value]))
+        .order_by(Run.queued_at.desc())
+    )
+    active_by_script: dict = {}
+    for run in runs_result.scalars():
+        if run.script_id not in active_by_script:
+            active_by_script[run.script_id] = run
+    return active_by_script
 
 
 @router.get("", response_model=list[ScriptResponse])
@@ -37,7 +82,9 @@ async def list_scripts(
     if group_id:
         q = q.where(Script.group_id == group_id)
     result = await db.execute(q.order_by(Script.name))
-    return result.scalars().all()
+    scripts = result.scalars().all()
+    active_by_script = await _load_active_runs(db, [s.id for s in scripts])
+    return _attach_active_runs(scripts, active_by_script)
 
 
 @router.post("", response_model=ScriptResponse, status_code=201)
@@ -104,7 +151,7 @@ async def delete_script(
         script = await get_script_or_404(db, script_id)
     except ValueError:
         raise HTTPException(404, "Script not found")
-    await db.delete(script)
+    await delete_script_record(db, script)
 
 
 @router.post("/{script_id}/copy", response_model=ScriptResponse, status_code=201)
@@ -153,7 +200,37 @@ async def list_files(
     _: Annotated[User, Depends(require_permission("scripts:read"))],
 ):
     script = await get_script_or_404(db, script_id)
-    return script.files
+    order = ordered_file_paths(script)
+    by_path = {f.path: f for f in script.files}
+    return [by_path[path] for path in order if path in by_path]
+
+
+@router.post("/{script_id}/files", response_model=ScriptFileResponse, status_code=201)
+async def create_file(
+    script_id: UUID,
+    body: ScriptFileCreate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(require_permission("scripts:write"))],
+):
+    try:
+        script = await get_script_or_404(db, script_id)
+        return await create_script_file(db, script, body.path, body.content)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.put("/{script_id}/files/order", response_model=list[str])
+async def update_file_order(
+    script_id: UUID,
+    body: ScriptFileOrderUpdate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(require_permission("scripts:write"))],
+):
+    try:
+        script = await get_script_or_404(db, script_id)
+        return await reorder_script_files(db, script, body.paths)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
 
 
 @router.put("/{script_id}/files/{file_path:path}", response_model=ScriptFileResponse)
@@ -176,6 +253,20 @@ async def update_file(
     script.version += 1
     await redis_service.publish(settings.script_updated_channel, str(script.id))
     return sf
+
+
+@router.delete("/{script_id}/files/{file_path:path}", status_code=204)
+async def delete_file(
+    script_id: UUID,
+    file_path: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(require_permission("scripts:write"))],
+):
+    try:
+        script = await get_script_or_404(db, script_id)
+        await delete_script_file(db, script, file_path)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
 
 
 @router.get("/{script_id}/export")

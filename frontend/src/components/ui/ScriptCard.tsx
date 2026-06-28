@@ -2,13 +2,22 @@ import {
   CommandLineIcon,
   CpuChipIcon,
   PlayIcon,
+  StopIcon,
   TrashIcon,
 } from "@heroicons/react/20/solid";
+import { useEffect, useState } from "react";
 import Badge from "@/components/ui/Badge";
 import { IconButton } from "@/components/ui/Button";
 import { SelectionCheckbox } from "@/components/ui/SelectionCheckbox";
 import { cn } from "@/lib/cn";
 import { useTranslation } from "@/context/LocaleContext";
+
+export interface ActiveRunInfo {
+  id: string;
+  status: string;
+  started_at: string | null;
+  queued_at: string;
+}
 
 export interface ScriptCardData {
   id: string;
@@ -19,6 +28,7 @@ export interface ScriptCardData {
   script_type: string;
   entrypoint: string;
   group_id: string | null;
+  active_run?: ActiveRunInfo | null;
 }
 
 interface ScriptCardProps {
@@ -33,6 +43,7 @@ interface ScriptCardProps {
   onToggleSelect?: () => void;
   onOpen: () => void;
   onRun: () => void;
+  onStop: () => void;
   onDelete: () => void;
 }
 
@@ -44,6 +55,35 @@ function previewLines(script: ScriptCardData): string[] {
     return ["async def on_message(msg):", "    await handle(msg)", "    return None"];
   }
   return [`# ${script.slug}`, `run("${script.entrypoint}")`, "..."];
+}
+
+function formatDuration(totalSeconds: number): string {
+  const s = Math.max(0, totalSeconds);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  const remS = s % 60;
+  if (m < 60) return `${m}m ${remS}s`;
+  const h = Math.floor(m / 60);
+  const remM = m % 60;
+  return `${h}h ${remM}m`;
+}
+
+function useElapsedSeconds(sinceIso: string | null | undefined): number {
+  const [seconds, setSeconds] = useState(0);
+
+  useEffect(() => {
+    if (!sinceIso) {
+      setSeconds(0);
+      return;
+    }
+    const start = new Date(sinceIso).getTime();
+    const tick = () => setSeconds(Math.floor((Date.now() - start) / 1000));
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
+  }, [sinceIso]);
+
+  return seconds;
 }
 
 export default function ScriptCard({
@@ -58,17 +98,25 @@ export default function ScriptCard({
   onToggleSelect,
   onOpen,
   onRun,
+  onStop,
   onDelete,
 }: ScriptCardProps) {
   const { t } = useTranslation();
   const lines = previewLines(script);
   const TypeIcon = script.script_type === "bot" ? CpuChipIcon : CommandLineIcon;
+  const activeRun = script.active_run;
+  const isActive = activeRun?.status === "running" || activeRun?.status === "queued";
+  const elapsedSince = activeRun?.started_at ?? activeRun?.queued_at;
+  const elapsedSeconds = useElapsedSeconds(isActive ? elapsedSince : null);
+  const runStatusTone =
+    activeRun?.status === "running" ? "success" : activeRun?.status === "queued" ? "warning" : "neutral";
 
   return (
     <article
       className={cn(
         "group relative flex h-full flex-col overflow-hidden rounded-xl bg-panel ring-1 ring-ring-line transition-shadow hover:ring-cyan-400/25",
         selected && "ring-cyan-400/40",
+        isActive && "ring-emerald-400/30",
       )}
     >
       {selectable && onToggleSelect && (
@@ -138,6 +186,26 @@ export default function ScriptCard({
             <Badge label={script.status} tone={script.status === "enabled" ? "success" : "neutral"} />
           </div>
 
+          {isActive && activeRun && (
+            <div className="mt-3 flex items-center justify-between gap-2 rounded-lg bg-surface-muted px-3 py-2 ring-1 ring-ring-line">
+              <div className="flex min-w-0 items-center gap-2">
+                {activeRun.status === "running" && (
+                  <span className="relative flex size-2 shrink-0">
+                    <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+                    <span className="relative inline-flex size-2 rounded-full bg-emerald-400" />
+                  </span>
+                )}
+                <Badge
+                  label={t(`scriptCard.runStatus.${activeRun.status}`)}
+                  tone={runStatusTone}
+                />
+              </div>
+              <span className="shrink-0 font-mono text-xs tabular-nums text-muted">
+                {formatDuration(elapsedSeconds)}
+              </span>
+            </div>
+          )}
+
           {groupName && (
             <p className="mt-3 truncate text-xs text-faint">
               {t("scriptCard.group", { name: groupName })}
@@ -150,7 +218,20 @@ export default function ScriptCard({
 
       {(canRun || canDelete) && (
         <div className="flex items-center justify-end gap-1 border-t border-line px-3 py-2">
-          {canRun && (
+          {canRun && isActive && (
+            <IconButton
+              aria-label={t("scriptCard.stopScript")}
+              disabled={busy}
+              onClick={(e) => {
+                e.stopPropagation();
+                onStop();
+              }}
+              className="text-amber-400 hover:text-amber-300"
+            >
+              <StopIcon className="size-4" />
+            </IconButton>
+          )}
+          {canRun && !isActive && (
             <IconButton
               aria-label={t("scriptCard.runScript")}
               disabled={busy}

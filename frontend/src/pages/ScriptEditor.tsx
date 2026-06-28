@@ -4,21 +4,22 @@ import Editor from "@monaco-editor/react";
 import {
   ArrowPathIcon,
   ChevronRightIcon,
-  DocumentIcon,
-  MagnifyingGlassIcon,
   PlayIcon,
   StopIcon,
 } from "@heroicons/react/20/solid";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
+import ScriptFileExplorer from "@/components/editor/ScriptFileExplorer";
+import ScriptFileActions from "@/components/editor/ScriptFileActions";
 import RefreshModeControl from "@/components/ui/RefreshModeControl";
 import { api, wsUrl } from "@/api/client";
 import { can, useAuth } from "@/context/AuthContext";
 import { useTranslation } from "@/context/LocaleContext";
+import { useToast } from "@/context/ToastContext";
 import { compareNumbers, useDataTable } from "@/hooks/useDataTable";
 import { useLiveQuery } from "@/hooks/useLiveQuery";
-import { defineEditorTheme } from "@/lib/monacoTheme";
+import { defineEditorTheme, editorThemeName } from "@/lib/monacoTheme";
+import { useTheme } from "@/context/ThemeContext";
 import { cn } from "@/lib/cn";
 
 interface Script {
@@ -39,10 +40,20 @@ interface Run {
   duration_ms: number | null;
 }
 
+interface RunLog {
+  id: number;
+  message: string;
+  level: string;
+}
+
+const TERMINAL_RUN_STATUSES = new Set(["success", "failed", "timeout", "cancelled"]);
+const ACTIVE_RUN_STATUSES = new Set(["running", "queued"]);
+
 const SECTION_HEADER = "flex h-11 shrink-0 items-center border-b border-line px-4";
 
 export default function ScriptEditorPage() {
   const { t } = useTranslation();
+  const { resolved } = useTheme();
   const { id } = useParams<{ id: string }>();
   const [script, setScript] = useState<Script | null>(null);
   const [files, setFiles] = useState<ScriptFile[]>([]);
@@ -58,7 +69,10 @@ export default function ScriptEditorPage() {
   const outputRef = useRef<HTMLDivElement>(null);
   const outputEndRef = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const attachedRunIdRef = useRef<string | null>(null);
   const { user } = useAuth();
+  const toast = useToast();
 
   const scrollOutputToBottom = useCallback((behavior: ScrollBehavior = "auto") => {
     outputEndRef.current?.scrollIntoView({ behavior, block: "end" });
@@ -131,7 +145,69 @@ export default function ScriptEditorPage() {
 
   useEffect(() => {
     loadInitial();
+    return () => {
+      wsRef.current?.close();
+      wsRef.current = null;
+      attachedRunIdRef.current = null;
+      if (pollRef.current) clearInterval(pollRef.current);
+      pollRef.current = null;
+    };
   }, [loadInitial]);
+
+  const fetchRunLogs = useCallback(async (runId: string) => {
+    const logLines = await api<RunLog[]>(`/api/v1/runs/${runId}/logs`);
+    setLogs(logLines.map((l) => l.message));
+  }, []);
+
+  const pollRunUntilDone = useCallback(
+    (runId: string) => {
+      if (pollRef.current) clearInterval(pollRef.current);
+      pollRef.current = setInterval(async () => {
+        try {
+          const run = await api<Run>(`/api/v1/runs/${runId}`);
+          await fetchRunLogs(runId);
+          await reloadLive();
+          if (TERMINAL_RUN_STATUSES.has(run.status)) {
+            if (pollRef.current) clearInterval(pollRef.current);
+            pollRef.current = null;
+            attachedRunIdRef.current = null;
+          }
+        } catch {
+          if (pollRef.current) clearInterval(pollRef.current);
+          pollRef.current = null;
+          attachedRunIdRef.current = null;
+        }
+      }, 1500);
+    },
+    [fetchRunLogs, reloadLive],
+  );
+
+  const attachToRun = useCallback(
+    (runId: string) => {
+      if (attachedRunIdRef.current === runId) return;
+      attachedRunIdRef.current = runId;
+
+      wsRef.current?.close();
+      const ws = new WebSocket(wsUrl(`/runs/${runId}`));
+      wsRef.current = ws;
+      ws.onmessage = (ev) => {
+        const data = JSON.parse(ev.data) as { message: string };
+        setLogs((prev) => (prev.at(-1) === data.message ? prev : [...prev, data.message]));
+      };
+
+      void fetchRunLogs(runId);
+      pollRunUntilDone(runId);
+    },
+    [fetchRunLogs, pollRunUntilDone],
+  );
+
+  const activeRun = runs.find((r) => ACTIVE_RUN_STATUSES.has(r.status));
+
+  useEffect(() => {
+    if (!activeRun) return;
+    setOutputOpen(true);
+    attachToRun(activeRun.id);
+  }, [activeRun?.id, attachToRun]);
 
   const save = async () => {
     if (!id) return;
@@ -153,19 +229,32 @@ export default function ScriptEditorPage() {
   };
 
   const runScript = async () => {
-    if (!id) return;
+    if (!id || activeRun) return;
     stickToBottom.current = true;
     setLogs([]);
     setOutputOpen(true);
-    const runRes = await api<Run>(`/api/v1/runs/scripts/${id}/run`, { method: "POST" });
-    wsRef.current?.close();
-    const ws = new WebSocket(wsUrl(`/runs/${runRes.id}`));
-    wsRef.current = ws;
-    ws.onmessage = (ev) => {
-      const data = JSON.parse(ev.data);
-      setLogs((prev) => [...prev, data.message]);
-    };
-    setTimeout(reloadLive, 2000);
+    try {
+      const runRes = await api<Run>(`/api/v1/runs/scripts/${id}/run`, { method: "POST" });
+      attachToRun(runRes.id);
+      await reloadLive();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Run failed");
+    }
+  };
+
+  const stopScript = async () => {
+    if (!id || !activeRun) return;
+    try {
+      await api(`/api/v1/runs/scripts/${id}/stop`, { method: "POST" });
+      attachedRunIdRef.current = null;
+      wsRef.current?.close();
+      wsRef.current = null;
+      if (pollRef.current) clearInterval(pollRef.current);
+      pollRef.current = null;
+      await reloadLive();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Stop failed");
+    }
   };
 
   const runTone = (st: string): "success" | "danger" | "warning" => {
@@ -179,6 +268,76 @@ export default function ScriptEditorPage() {
     setContent(fileContent ?? "");
   };
 
+  const reloadFiles = useCallback(async () => {
+    if (!id) return [] as ScriptFile[];
+    const f = await api<ScriptFile[]>(`/api/v1/scripts/${id}/files`);
+    setFiles(f);
+    return f;
+  }, [id]);
+
+  const filePathUrl = (path: string) => encodeURIComponent(path).replace(/%2F/g, "/");
+
+  const addFile = async (path: string) => {
+    if (!id) return;
+    try {
+      const created = await api<ScriptFile>(`/api/v1/scripts/${id}/files`, {
+        method: "POST",
+        body: JSON.stringify({ path, content: "" }),
+      });
+      await reloadFiles();
+      selectFile(created.path, created.content ?? "");
+      toast.success(t("editor.fileAdded", { name: created.path }));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("editor.fileAddFailed"));
+      throw err;
+    }
+  };
+
+  const deleteFile = async (path: string) => {
+    if (!id) return;
+    try {
+      await api(`/api/v1/scripts/${id}/files/${filePathUrl(path)}`, { method: "DELETE" });
+      const remaining = await reloadFiles();
+      const next = remaining.find((f) => f.path === script?.entrypoint) ?? remaining[0];
+      if (next) selectFile(next.path, next.content);
+      toast.success(t("editor.fileDeleted", { name: path }));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("editor.fileDeleteFailed"));
+      throw err;
+    }
+  };
+
+  const reorderFiles = async (paths: string[]) => {
+    if (!id) return;
+    await api(`/api/v1/scripts/${id}/files/order`, {
+      method: "PUT",
+      body: JSON.stringify({ paths }),
+    });
+    await reloadFiles();
+  };
+
+  const importFiles = async (imports: { path: string; content: string }[]) => {
+    if (!id) return;
+    for (const file of imports) {
+      const exists = files.some((f) => f.path === file.path);
+      if (exists) {
+        await api(`/api/v1/scripts/${id}/files/${filePathUrl(file.path)}`, {
+          method: "PUT",
+          body: JSON.stringify({ content: file.content }),
+        });
+      } else {
+        await api(`/api/v1/scripts/${id}/files`, {
+          method: "POST",
+          body: JSON.stringify({ path: file.path, content: file.content }),
+        });
+      }
+    }
+    const updated = await reloadFiles();
+    const last = updated.find((f) => f.path === imports[imports.length - 1]?.path);
+    if (last) selectFile(last.path, last.content);
+    toast.success(t("editor.filesImported", { count: imports.length }));
+  };
+
   if (!script) {
     return (
       <div className="flex h-[calc(100vh-3.5rem)] items-center justify-center text-faint lg:h-screen">
@@ -187,8 +346,6 @@ export default function ScriptEditorPage() {
       </div>
     );
   }
-
-  const filtered = files.filter((f) => !search || f.path.toLowerCase().includes(search.toLowerCase()));
 
   return (
     <div className="flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden lg:h-screen">
@@ -219,19 +376,36 @@ export default function ScriptEditorPage() {
             </Button>
           )}
           {can(user, "scripts:run") && (
-            <>
-              <Button size="sm" icon={<PlayIcon className="size-4" />} onClick={runScript}>
-                {t("common.run")}
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                icon={<StopIcon className="size-4" />}
-                onClick={() => id && api(`/api/v1/runs/scripts/${id}/stop`, { method: "POST" })}
-              >
-                {t("common.stop")}
-              </Button>
-            </>
+            <Button
+              size="sm"
+              variant={activeRun ? "secondary" : "primary"}
+              onClick={activeRun ? stopScript : runScript}
+              aria-label={activeRun ? t("common.stop") : t("common.run")}
+              className="min-w-[9.5rem] justify-center"
+            >
+              <span className="inline-grid [&>*]:col-start-1 [&>*]:row-start-1 [&>*]:justify-self-center">
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-x-1.5",
+                    activeRun && "invisible",
+                  )}
+                  aria-hidden={Boolean(activeRun)}
+                >
+                  <PlayIcon className="size-4 shrink-0" />
+                  {t("common.run")}
+                </span>
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-x-1.5",
+                    !activeRun && "invisible",
+                  )}
+                  aria-hidden={!Boolean(activeRun)}
+                >
+                  <StopIcon className="size-4 shrink-0" />
+                  {t("common.stop")}
+                </span>
+              </span>
+            </Button>
           )}
         </div>
       </header>
@@ -244,39 +418,19 @@ export default function ScriptEditorPage() {
 
       {/* Workspace — symmetric 3 columns */}
       <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[240px_minmax(0,1fr)_240px]">
-        {/* Explorer */}
-        <aside className="hidden flex-col border-r border-line bg-surface-muted lg:flex">
-          <div className={cn(SECTION_HEADER, "flex-col items-stretch justify-center gap-2 py-3 !h-auto")}>
-            <p className="text-[0.6875rem] font-semibold uppercase tracking-wider text-faint">{t("editor.explorer")}</p>
-            <div className="relative">
-              <MagnifyingGlassIcon className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-faint" />
-              <Input
-                className="h-8 pl-8 text-xs"
-                placeholder={t("editor.filterFiles")}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-          </div>
-          <nav className="flex-1 space-y-0.5 overflow-y-auto p-2">
-            {filtered.map((f) => (
-              <button
-                key={f.path}
-                type="button"
-                onClick={() => selectFile(f.path, f.content)}
-                className={cn(
-                  "flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left transition-colors",
-                  f.path === activeFile
-                    ? "bg-cyan-400/10 text-cyan-400 ring-1 ring-inset ring-cyan-400/20"
-                    : "text-muted hover:bg-inset hover:text-foreground-secondary",
-                )}
-              >
-                <DocumentIcon className="size-4 shrink-0 opacity-60" />
-                <span className="truncate font-mono text-xs">{f.path}</span>
-              </button>
-            ))}
-          </nav>
-        </aside>
+        <ScriptFileExplorer
+          files={files}
+          activeFile={activeFile}
+          entrypoint={script.entrypoint}
+          search={search}
+          onSearchChange={setSearch}
+          canWrite={can(user, "scripts:write")}
+          onSelectFile={selectFile}
+          onAddFile={addFile}
+          onDeleteFile={deleteFile}
+          onReorderFiles={reorderFiles}
+          onImportFiles={importFiles}
+        />
 
         {/* Editor column */}
         <div className="flex min-w-0 flex-col">
@@ -289,7 +443,7 @@ export default function ScriptEditorPage() {
             <Editor
               height="100%"
               language="python"
-              theme="pyorch-dark"
+              theme={editorThemeName(resolved)}
               value={content}
               beforeMount={defineEditorTheme}
               onChange={(v) => setContent(v ?? "")}
@@ -392,6 +546,16 @@ export default function ScriptEditorPage() {
       {/* Mobile tabs */}
       <div className="shrink-0 border-t border-line bg-panel-muted p-3 lg:hidden">
         <p className="mb-2 text-[0.6875rem] font-semibold uppercase tracking-wider text-faint">{t("editor.files")}</p>
+        {can(user, "scripts:write") && (
+          <ScriptFileActions canWrite onAddFile={addFile} onImportFiles={importFiles}>
+            {({ toolbar, form }) => (
+              <div className="mb-3 space-y-2">
+                <div className="flex items-center gap-0.5">{toolbar}</div>
+                {form}
+              </div>
+            )}
+          </ScriptFileActions>
+        )}
         <div className="flex gap-2 overflow-x-auto pb-1">
           {files.map((f) => (
             <button

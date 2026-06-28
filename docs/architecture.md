@@ -1,4 +1,8 @@
-# PyOrchestrator — System Architecture
+---
+layout: default
+title: Архитектура
+description: Топология сервисов, sandbox-модель, потоки данных и безопасность
+---
 
 ## Vision
 
@@ -38,7 +42,7 @@ Design influences: SCADA (monitoring/control), Jenkins (CI runs), Home Assistant
 | Service | Role | Tech |
 |---------|------|------|
 | **backend** | REST API, WebSocket hub, RBAC, secrets vault API, OTA coordinator | FastAPI, SQLAlchemy, Redis |
-| **frontend** | Dashboard, script editor, monitoring UI | React, TypeScript, Vite, MUI |
+| **frontend** | Dashboard, script editor, monitoring UI | React, TypeScript, Vite, Tailwind CSS |
 | **runtime** | Single process pool; spawns isolated Python sandboxes per script run | Python, subprocess, venv, cgroups/rlimit |
 | **scheduler** | Cron, intervals, webhooks, event chains; dispatches runs to runtime | APScheduler, Redis |
 | **postgres** | Metadata, runs, users, schedules, audit | PostgreSQL 16 |

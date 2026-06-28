@@ -10,6 +10,7 @@ import logging
 import os
 import socket
 import threading
+import contextlib
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
@@ -51,13 +52,25 @@ def start_health_server(port: int = 9091):
     threading.Thread(target=server.serve_forever, daemon=True).start()
 
 
-async def backend_post(path: str, payload: dict) -> None:
+async def backend_post(path: str, payload: dict) -> dict:
     async with httpx.AsyncClient(timeout=30) as client:
-        await client.post(
+        res = await client.post(
             f"{BACKEND_URL}{path}",
             json=payload,
             headers={"X-Internal-Key": INTERNAL_KEY},
         )
+        res.raise_for_status()
+        return res.json() if res.content else {}
+
+
+async def backend_get(path: str) -> dict:
+    async with httpx.AsyncClient(timeout=10) as client:
+        res = await client.get(
+            f"{BACKEND_URL}{path}",
+            headers={"X-Internal-Key": INTERNAL_KEY},
+        )
+        res.raise_for_status()
+        return res.json()
 
 
 async def publish_log(redis: aioredis.Redis, run_id: str, level: str, message: str) -> None:
@@ -66,54 +79,107 @@ async def publish_log(redis: aioredis.Redis, run_id: str, level: str, message: s
     await backend_post("/internal/runs/log", {"run_id": run_id, "level": level, "message": message})
 
 
+async def watch_stop(redis: aioredis.Redis, run_id: str, pool: SandboxPool) -> None:
+    pubsub = redis.pubsub()
+    channel = f"run:{run_id}:control"
+    await pubsub.subscribe(channel)
+    try:
+        while True:
+            msg = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
+            if msg and msg.get("type") == "message" and msg.get("data") == "stop":
+                pool.stop_run(run_id)
+                return
+            await asyncio.sleep(0.1)
+    finally:
+        await pubsub.unsubscribe(channel)
+        await pubsub.aclose()
+
+
 async def process_job(pool: SandboxPool, redis: aioredis.Redis, job: dict) -> None:
     script_id = job["script_id"]
     run_id = job["run_id"]
     entrypoint = job.get("entrypoint", "main.py")
-    files: dict = job.get("files", {})
-    if not files and job.get("code"):
-        files = {entrypoint: job["code"]}
 
-    workspace = WORKSPACES_ROOT / script_id / run_id
-    workspace.mkdir(parents=True, exist_ok=True)
-    for path, content in files.items():
-        fp = workspace / path
-        fp.parent.mkdir(parents=True, exist_ok=True)
-        fp.write_text(content)
+    try:
+        files: dict = job.get("files", {})
+        if not files and job.get("code"):
+            files = {entrypoint: job["code"]}
 
-    secrets = job.get("secrets", {})
-    config = SandboxConfig(
-        script_id=script_id,
-        run_id=run_id,
-        entrypoint=entrypoint,
-        workspace=workspace,
-        env=secrets,
-        max_memory_bytes=int(job.get("max_memory_bytes", 512 * 1024 * 1024)),
-        max_cpu_seconds=int(job.get("max_cpu_seconds", 300)),
-        wall_timeout_sec=int(job.get("wall_timeout_sec", 3600)),
-    )
+        workspace = WORKSPACES_ROOT / script_id / run_id
+        workspace.mkdir(parents=True, exist_ok=True)
+        for path, content in files.items():
+            fp = workspace / path
+            fp.parent.mkdir(parents=True, exist_ok=True)
+            fp.write_text(content)
 
-    code = files.get(entrypoint, 'print("no entrypoint")\n')
+        secrets = job.get("secrets", {})
+        config = SandboxConfig(
+            script_id=script_id,
+            run_id=run_id,
+            entrypoint=entrypoint,
+            workspace=workspace,
+            env=secrets,
+            max_memory_bytes=int(job.get("max_memory_bytes", 512 * 1024 * 1024)),
+            max_cpu_seconds=int(job.get("max_cpu_seconds", 300)),
+            wall_timeout_sec=int(job.get("wall_timeout_sec", 3600)),
+        )
 
-    async def on_line(level: str, line: str):
-        await publish_log(redis, run_id, level, line)
+        code = files.get(entrypoint, 'print("no entrypoint")\n')
 
-    logger.info("Starting run_id=%s script_id=%s", run_id, script_id)
-    result = await pool.execute(config, code, on_line=on_line)
+        async def on_line(level: str, line: str):
+            await publish_log(redis, run_id, level, line)
 
-    status = "success" if result.exit_code == 0 and not result.timed_out else (
-        "timeout" if result.timed_out else "failed"
-    )
-    await backend_post("/internal/runs/complete", {
-        "run_id": run_id,
-        "status": status,
-        "exit_code": result.exit_code,
-        "duration_ms": result.duration_ms,
-        "stdout": result.stdout,
-        "stderr": result.stderr,
-        "hostname": HOSTNAME,
-    })
-    logger.info("Finished run_id=%s status=%s", run_id, status)
+        logger.info("Starting run_id=%s script_id=%s", run_id, script_id)
+
+        try:
+            run_status = await backend_get(f"/internal/runs/{run_id}")
+        except Exception:
+            run_status = {}
+        if run_status.get("status") == "cancelled":
+            logger.info("Skipping cancelled run_id=%s", run_id)
+            return
+
+        start_res = await backend_post("/internal/runs/start", {
+            "run_id": run_id,
+            "pid": 0,
+            "hostname": HOSTNAME,
+        })
+        if start_res.get("skipped"):
+            logger.info("Run already cancelled run_id=%s", run_id)
+            return
+
+        stop_watcher = asyncio.create_task(watch_stop(redis, run_id, pool))
+        try:
+            result = await pool.execute(config, code, on_line=on_line)
+        finally:
+            stop_watcher.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await stop_watcher
+
+        status = "success" if result.exit_code == 0 and not result.timed_out else (
+            "timeout" if result.timed_out else "failed"
+        )
+        await backend_post("/internal/runs/complete", {
+            "run_id": run_id,
+            "status": status,
+            "exit_code": result.exit_code,
+            "duration_ms": result.duration_ms,
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+            "hostname": HOSTNAME,
+        })
+        logger.info("Finished run_id=%s status=%s", run_id, status)
+    except Exception as exc:
+        logger.exception("Job failed run_id=%s", run_id)
+        await backend_post("/internal/runs/complete", {
+            "run_id": run_id,
+            "status": "failed",
+            "exit_code": -1,
+            "duration_ms": 0,
+            "stdout": "",
+            "stderr": str(exc),
+            "hostname": HOSTNAME,
+        })
 
 
 async def main_loop() -> None:

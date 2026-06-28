@@ -133,6 +133,64 @@ export const ru: Messages = {
       description: "CPU, память, логи и дашборды через Grafana.",
       openGrafana: "Открыть Grafana",
     },
+    charts: {
+      total24h: "Всего за 24ч",
+      lastHour: "Последний час",
+      peak24h: "Пик за 24ч",
+      avg24h: "Среднее за 24ч",
+      execution: {
+        title: "Активность запусков",
+        subtitle: "Запуски, ошибки и успехи по часам",
+      },
+      capacity: {
+        title: "Нагрузка и расписания",
+        subtitle: "Параллельные sandbox и триггеры по расписанию",
+      },
+      resources: {
+        title: "Ресурсы sandbox",
+        subtitle: "CPU и использование памяти",
+      },
+      io: {
+        title: "Соединения и I/O",
+        subtitle: "Сеть и активность диска",
+      },
+      runs: {
+        title: "Запуски",
+        subtitle: "Постановка в очередь по часам",
+      },
+      errors: {
+        title: "Ошибки",
+        subtitle: "Сбои и таймауты",
+      },
+      successes: {
+        title: "Успешные",
+        subtitle: "Завершённые запуски",
+      },
+      load: {
+        title: "Нагрузка",
+        subtitle: "Параллельные sandbox",
+      },
+      schedules: {
+        title: "Расписания",
+        subtitle: "Запуски по cron, интервалу и вебхукам",
+      },
+      cpu: {
+        title: "CPU",
+        subtitle: "Загрузка CPU sandbox %",
+      },
+      memory: {
+        title: "Память",
+        subtitle: "RAM sandbox (МБ)",
+      },
+      network: {
+        title: "Сеть",
+        subtitle: "Открытые соединения",
+      },
+      disk: {
+        title: "Диск I/O",
+        subtitle: "Открытые файловые дескрипторы",
+      },
+    },
   },
   scripts: {
     title: "Скрипты",
@@ -147,6 +205,8 @@ export const ru: Messages = {
     empty: "Скриптов пока нет — создайте первую автоматизацию",
     confirmDelete: "Удалить скрипт «{name}»? Это необратимо.",
     confirmBulkDelete: "Удалить {count} скрипт(ов)? Это необратимо.",
+    deleted: "Скрипт «{name}» удалён",
+    deleteFailed: "Не удалось удалить скрипт",
   },
   groups: {
     title: "Группы",
@@ -184,6 +244,7 @@ export const ru: Messages = {
     empty: "Расписания не настроены",
     confirmDelete: "Удалить расписание «{name}»?",
     confirmBulkDelete: "Удалить {count} расписаний?",
+    deleteFailed: "Не удалось удалить расписание",
     modal: {
       selectScript: "Выберите скрипт…",
       namePlaceholder: "Ежедневная синхронизация",
@@ -225,8 +286,8 @@ export const ru: Messages = {
     },
   },
   users: {
-    title: "Пользователи",
-    titleFull: "Пользователи и роли",
+    title: "Пользователи и группы",
+    titleFull: "Пользователи и группы",
     subtitle: "Контроль доступа",
     create: "Новый пользователь",
     edit: "Редактировать пользователя",
@@ -261,6 +322,22 @@ export const ru: Messages = {
     loading: "Загрузка редактора…",
     explorer: "Проводник",
     filterFiles: "Фильтр файлов…",
+    addFile: "Добавить файл",
+    createFile: "Создать файл",
+    importFromDisk: "С диска",
+    deleteFile: "Удалить файл",
+    newFilePlaceholder: "path/to/file.py",
+    entrypoint: "main",
+    confirmDeleteFile: "Удалить файл «{name}»?",
+    cannotDeleteEntrypoint: "Нельзя удалить файл точки входа",
+    cannotDeleteOnlyFile: "Нельзя удалить единственный файл",
+    noFilesMatch: "Нет файлов по фильтру",
+    dropFilesHint: "Перетащите файлы сюда, чтобы добавить",
+    fileAdded: "Файл «{name}» добавлен",
+    fileDeleted: "Файл «{name}» удалён",
+    filesImported: "Импортировано файлов: {count}",
+    fileAddFailed: "Не удалось добавить файл",
+    fileDeleteFailed: "Не удалось удалить файл",
     output: "Вывод",
     lines: "{count} строк",
     outputEmpty: "Запустите скрипт, чтобы увидеть вывод…",
@@ -290,6 +367,11 @@ export const ru: Messages = {
   scriptCard: {
     group: "Группа · {name}",
     runScript: "Запустить скрипт",
+    stopScript: "Остановить скрипт",
+    runStatus: {
+      running: "Запущен",
+      queued: "В очереди",
+    },
     deleteScript: "Удалить скрипт",
   },
   permissions: {
@@ -321,7 +403,7 @@ export const ru: Messages = {
   },
   nav: {
     sections: {
-      overview: "Обзор",
+      overview: "Главное",
       automation: "Автоматизация",
       operations: "Операции",
       system: "Система",
@@ -333,8 +415,110 @@ export const ru: Messages = {
     webhooks: "Вебхуки",
     alerts: "Оповещения",
     backups: "Резервные копии",
-    users: "Пользователи",
+    users: "Пользователи и группы",
     settings: "Настройки",
+    system: "Информация о системе",
+    mcp: "MCP сервер",
+  },
+  mcp: {
+    title: "MCP сервер",
+    subtitle: "AI-агенты · Cursor · API автоматизации",
+    copied: "Скопировано в буфер обмена",
+    copyUrl: "Скопировать HTTP URL",
+    metrics: {
+      status: "Статус",
+      transport: "Транспорт",
+      tools: "Инструменты",
+      resource: "Ресурс",
+    },
+    endpoint: {
+      title: "HTTP endpoint",
+      subtitle: "Streamable HTTP (Docker)",
+      hint: "Используйте этот URL для подключения из Cursor или других MCP-клиентов по HTTP. Для локальной разработки без Docker запустите stdio из папки mcp/.",
+    },
+    cursor: {
+      title: "Конфигурация Cursor",
+      subtitle: "Settings → MCP или ~/.cursor/mcp.json",
+      stdio: "Stdio (локально)",
+      http: "HTTP (Docker)",
+      stdioHint: "Установка: pip install -e ./mcp, cwd — папка mcp проекта.",
+      httpHint: "Нужен сервис docker compose mcp на порту 8010.",
+    },
+    tools: {
+      title: "Доступные инструменты",
+      subtitle: "Операции для AI-агентов",
+      columns: {
+        name: "Инструмент",
+        category: "Категория",
+        description: "Описание",
+      },
+    },
+  },
+  system: {
+    title: "Информация о системе",
+    subtitle: "Состояние платформы и инфраструктура",
+    cards: {
+      application: {
+        title: "Приложение",
+        version: "Версия",
+        environment: "Окружение",
+        uptime: "Аптайм",
+      },
+      services: {
+        title: "Сервисы",
+        subtitle: "Проверки здоровья",
+      },
+      runtime: {
+        title: "Runtime",
+        subtitle: "Очередь выполнения",
+        queued: "В очереди",
+        running: "Сейчас работает",
+        totalRuns: "Всего запусков",
+        queueKey: "Ключ очереди",
+      },
+      assets: {
+        title: "Объекты",
+        subtitle: "Скрипты и группы",
+        scripts: "Скрипты",
+        enabled: "Включено",
+        groups: "Группы",
+      },
+      automation: {
+        title: "Автоматизация",
+        subtitle: "Расписания и вебхуки",
+        schedules: "Расписания",
+        schedulesActive: "Активные расписания",
+        webhooks: "Вебхуки",
+      },
+      users: {
+        title: "Пользователи",
+        subtitle: "Доступ и оповещения",
+        total: "Всего пользователей",
+        active: "Активных",
+        unreadAlerts: "Непрочитанных",
+      },
+      storage: {
+        title: "Хранилище",
+        subtitle: "Object storage",
+        bucket: "Bucket MinIO",
+        service: "Статус MinIO",
+      },
+      network: {
+        title: "Сеть",
+        subtitle: "Доступ к API",
+        cors: "CORS origins",
+      },
+      started: {
+        title: "Запуск backend",
+        subtitle: "Текущий процесс",
+      },
+    },
+    resources: {
+      title: "Ресурсы хоста",
+      subtitle: "Память и диск сервера backend",
+      memory: "RAM",
+      disk: "Диск",
+    },
   },
   settings: {
     title: "Настройки",

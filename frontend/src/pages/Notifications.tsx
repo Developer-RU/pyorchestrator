@@ -30,6 +30,7 @@ interface Notification {
 function severityTone(s: string): BadgeTone {
   if (s === "error") return "danger";
   if (s === "warning") return "warning";
+  if (s === "info") return "accent";
   return "neutral";
 }
 

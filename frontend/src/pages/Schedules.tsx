@@ -20,6 +20,7 @@ import { useBulkSelection } from "@/hooks/useBulkSelection";
 import { useLiveQuery } from "@/hooks/useLiveQuery";
 import { API_URL, api } from "@/api/client";
 import { can, useAuth } from "@/context/AuthContext";
+import { useToast } from "@/context/ToastContext";
 import { useTranslation } from "@/context/LocaleContext";
 
 interface Schedule {
@@ -69,6 +70,7 @@ const emptyForm = {
 
 export default function SchedulesPage() {
   const { t } = useTranslation();
+  const toast = useToast();
   const { user } = useAuth();
   const canWrite = can(user, "schedules:write");
   const [scripts, setScripts] = useState<Script[]>([]);
@@ -282,6 +284,8 @@ export default function SchedulesPage() {
     try {
       await api(`/api/v1/schedules/${s.id}`, { method: "DELETE" });
       reload();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("schedules.deleteFailed"));
     } finally {
       setActionId(null);
     }
@@ -300,7 +304,11 @@ export default function SchedulesPage() {
 
   const bulkDelete = async () => {
     if (!window.confirm(t("schedules.confirmBulkDelete", { count: bulk.count }))) return;
-    await runBulk(bulk.selectedIds, (id) => api(`/api/v1/schedules/${id}`, { method: "DELETE" }));
+    try {
+      await runBulk(bulk.selectedIds, (id) => api(`/api/v1/schedules/${id}`, { method: "DELETE" }));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("schedules.deleteFailed"));
+    }
   };
 
   const bulkSetActive = async (active: boolean) => {

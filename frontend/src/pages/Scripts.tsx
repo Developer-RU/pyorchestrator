@@ -18,6 +18,7 @@ import { useLiveQuery } from "@/hooks/useLiveQuery";
 import { api } from "@/api/client";
 import { can, useAuth } from "@/context/AuthContext";
 import { useTranslation } from "@/context/LocaleContext";
+import { useToast } from "@/context/ToastContext";
 
 interface Group {
   id: string;
@@ -61,6 +62,7 @@ export default function ScriptsPage() {
   const [groupId, setGroupId] = useState("");
   const navigate = useNavigate();
   const { user } = useAuth();
+  const toast = useToast();
   const canRun = can(user, "scripts:run");
   const canDelete = can(user, "scripts:delete");
   const canBulk = canRun || canDelete;
@@ -193,6 +195,16 @@ export default function ScriptsPage() {
     reload();
   };
 
+  const stop = async (id: string) => {
+    setActionId(id);
+    try {
+      await api(`/api/v1/runs/scripts/${id}/stop`, { method: "POST" });
+      reload();
+    } finally {
+      setActionId(null);
+    }
+  };
+
   const remove = async (s: ScriptCardData) => {
     if (!window.confirm(t("scripts.confirmDelete", { name: s.name }))) {
       return;
@@ -200,7 +212,10 @@ export default function ScriptsPage() {
     setActionId(s.id);
     try {
       await api(`/api/v1/scripts/${s.id}`, { method: "DELETE" });
+      toast.success(t("scripts.deleted", { name: s.name }));
       reload();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("scripts.deleteFailed"));
     } finally {
       setActionId(null);
     }
@@ -320,6 +335,7 @@ export default function ScriptsPage() {
                   onToggleSelect={() => bulk.toggle(s.id)}
                   onOpen={() => navigate(`/scripts/${s.id}`)}
                   onRun={() => run(s.id)}
+                  onStop={() => stop(s.id)}
                   onDelete={() => remove(s)}
                 />
               );

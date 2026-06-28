@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     scheduler_reload_channel: str = "scheduler:reload"
     script_updated_channel: str = "script:updated"
 
+    mcp_internal_url: str = "http://mcp:8010"
+    mcp_public_url: str = "http://localhost:8010"
+    mcp_transport: str = "streamable-http"
+
     default_admin_email: str = "admin@pyorchestrator.local"
     default_admin_password: str = "admin"
 

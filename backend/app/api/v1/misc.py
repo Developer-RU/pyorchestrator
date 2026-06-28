@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings as app_settings
 from app.core.deps import get_current_user, require_permission, verify_internal_key
 from app.db.session import get_db
+from app.models.run import Run
 from app.models.user import Notification, User
 from app.schemas import (
     BackupResponse,
@@ -17,6 +18,7 @@ from app.schemas import (
     BackupSettingsResponse,
     BackupSettingsUpdate,
     DashboardStats,
+    DashboardTimeseries,
     InternalRunComplete,
     InternalRunLog,
     InternalRunMetric,
@@ -33,8 +35,8 @@ from app.services.backup_service import (
     get_backup_settings,
     restore_backup,
 )
-from app.services.dashboard_service import get_dashboard_stats
-from app.services.notification_service import sync_failure_alerts_for_user
+from app.services.dashboard_service import get_dashboard_stats, get_dashboard_timeseries
+from app.services.notification_service import dismiss_notification, sync_run_alerts_for_user
 from app.services.run_service import append_run_log, complete_run, record_metric, start_run
 from app.services.script_service import get_script_or_404, queue_run, redis_service
 from app.services.secret_service import list_secrets, set_secret
@@ -72,7 +74,7 @@ async def list_notifications(
     user: Annotated[User, Depends(get_current_user)],
     unread_only: bool = False,
 ):
-    await sync_failure_alerts_for_user(db, user)
+    await sync_run_alerts_for_user(db, user)
     q = select(Notification).where(Notification.user_id == user.id)
     if unread_only:
         q = q.where(Notification.is_read == False)  # noqa: E712
@@ -108,6 +110,7 @@ async def delete_notification(
     n = result.scalar_one_or_none()
     if not n:
         raise HTTPException(404)
+    await dismiss_notification(db, user.id, n)
     await db.delete(n)
     await db.flush()
 
@@ -225,6 +228,15 @@ async def dashboard_stats(
     return await get_dashboard_stats(db)
 
 
+@dashboard_router.get("/timeseries", response_model=DashboardTimeseries)
+async def dashboard_timeseries(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(require_permission("scripts:read"))],
+    hours: int = 24,
+):
+    return await get_dashboard_timeseries(db, hours=min(max(hours, 6), 48))
+
+
 internal_router = APIRouter()
 
 
@@ -250,10 +262,19 @@ async def internal_schedule_trigger(schedule_id: UUID, db: Annotated[AsyncSessio
     return {"run_id": str(run.id)}
 
 
+@internal_router.get("/runs/{run_id}", dependencies=[Depends(verify_internal_key)])
+async def internal_run_status(run_id: UUID, db: Annotated[AsyncSession, Depends(get_db)]):
+    result = await db.execute(select(Run).where(Run.id == run_id))
+    run = result.scalar_one_or_none()
+    if not run:
+        raise HTTPException(404, "Run not found")
+    return {"run_id": str(run.id), "status": run.status}
+
+
 @internal_router.post("/runs/start", dependencies=[Depends(verify_internal_key)])
 async def internal_run_start(body: InternalRunStart, db: Annotated[AsyncSession, Depends(get_db)]):
-    await start_run(db, body.run_id, body.pid, body.hostname)
-    return {"ok": True}
+    run = await start_run(db, body.run_id, body.pid, body.hostname)
+    return {"ok": True, "skipped": run is None}
 
 
 @internal_router.post("/runs/complete", dependencies=[Depends(verify_internal_key)])

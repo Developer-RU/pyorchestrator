@@ -1,6 +1,6 @@
 import type { editor } from "monaco-editor";
 
-export const editorTheme: editor.IStandaloneThemeData = {
+export const editorThemeDark: editor.IStandaloneThemeData = {
   base: "vs-dark",
   inherit: true,
   rules: [
@@ -29,6 +29,41 @@ export const editorTheme: editor.IStandaloneThemeData = {
   },
 };
 
+export const editorThemeLight: editor.IStandaloneThemeData = {
+  base: "vs",
+  inherit: true,
+  rules: [
+    { token: "comment", foreground: "71717a", fontStyle: "italic" },
+    { token: "keyword", foreground: "7c3aed" },
+    { token: "string", foreground: "059669" },
+    { token: "number", foreground: "d97706" },
+    { token: "function", foreground: "0891b2" },
+  ],
+  colors: {
+    "editor.background": "#ffffff",
+    "editor.foreground": "#18181b",
+    "editor.lineHighlightBackground": "#f4f4f5",
+    "editor.selectionBackground": "#06b6d433",
+    "editor.inactiveSelectionBackground": "#06b6d418",
+    "editorLineNumber.foreground": "#a1a1aa",
+    "editorLineNumber.activeForeground": "#52525b",
+    "editorCursor.foreground": "#0891b2",
+    "editorIndentGuide.background": "#e4e4e7",
+    "editorIndentGuide.activeBackground": "#d4d4d8",
+    "editorWidget.background": "#ffffff",
+    "editorWidget.border": "#00000014",
+    "minimap.background": "#ffffff",
+    "scrollbarSlider.background": "#00000014",
+    "scrollbarSlider.hoverBackground": "#00000024",
+    "editorGutter.background": "#fafafa",
+  },
+};
+
 export function defineEditorTheme(monaco: typeof import("monaco-editor")) {
-  monaco.editor.defineTheme("pyorch-dark", editorTheme);
+  monaco.editor.defineTheme("pyorch-dark", editorThemeDark);
+  monaco.editor.defineTheme("pyorch-light", editorThemeLight);
+}
+
+export function editorThemeName(resolved: "light" | "dark"): "pyorch-light" | "pyorch-dark" {
+  return resolved === "light" ? "pyorch-light" : "pyorch-dark";
 }

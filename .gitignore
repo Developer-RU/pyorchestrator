@@ -34,5 +34,10 @@ data/
 # Logs
 *.log
 
+# Jekyll
+docs/_site/
+docs/.jekyll-cache/
+docs/.jekyll-metadata
+
 # Runtime workspaces (local)
 workspaces/

@@ -10,9 +10,11 @@ import {
   ClockIcon,
   CloudArrowUpIcon,
   CodeBracketSquareIcon,
+  CommandLineIcon,
   Cog6ToothIcon,
   FolderIcon,
   LinkIcon,
+  ServerStackIcon,
   UsersIcon,
 } from "@heroicons/react/24/outline";
 import type { ComponentType, ReactNode } from "react";
@@ -53,6 +55,8 @@ const navSections: NavSection[] = [
   {
     titleKey: "nav.sections.system",
     items: [
+      { path: "/system", labelKey: "nav.system", icon: ServerStackIcon },
+      { path: "/mcp", labelKey: "nav.mcp", icon: CommandLineIcon },
       { path: "/users", labelKey: "nav.users", icon: UsersIcon },
       { path: "/settings", labelKey: "nav.settings", icon: Cog6ToothIcon },
     ],

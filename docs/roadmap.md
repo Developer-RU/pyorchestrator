@@ -1,4 +1,22 @@
-# PyOrchestrator — Development Roadmap
+---
+layout: default
+title: Roadmap
+description: План развития PyOrchestrator — MVP и Production фазы
+---
+
+## Статус v0.1.0
+
+| Phase | Status | Notes |
+|-------|--------|-------|
+| MVP-0 Foundation | ✅ | Compose, DB auto-migrate, health, Prometheus/Grafana/Loki, CI |
+| MVP-1 Script CRUD + Run | ✅ | CRUD, run/stop, logs WS, import/export, templates |
+| MVP-2 Scheduler + Dashboard | ✅ | Cron/interval schedules, KPI dashboard, webhooks |
+| MVP-3 Editor + RBAC | ✅ | Monaco editor, JWT auth, 4 roles, groups |
+| Production-1 | ✅ | Secrets vault, notifications, backups |
+| Production-2 | ✅ | OTA stub, UpdateProvider, multi-runtime compose prod, metrics |
+| Production-3 | 🔜 | MQTT, HA Postgres, advanced isolation — backlog |
+
+---
 
 ## Phase Overview
 

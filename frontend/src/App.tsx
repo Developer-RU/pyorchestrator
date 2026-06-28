@@ -16,6 +16,8 @@ import WebhooksPage from "./pages/Webhooks";
 import NotificationsPage from "./pages/Notifications";
 import BackupsPage from "./pages/Backups";
 import SettingsPage from "./pages/Settings";
+import SystemPage from "./pages/System";
+import McpPage from "./pages/Mcp";
 import UsersPage from "./pages/Users";
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -56,6 +58,8 @@ export default function App() {
             <Route path="/webhooks" element={<WebhooksPage />} />
             <Route path="/notifications" element={<NotificationsPage />} />
             <Route path="/backups" element={<BackupsPage />} />
+            <Route path="/system" element={<SystemPage />} />
+            <Route path="/mcp" element={<McpPage />} />
             <Route path="/users" element={<UsersPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Route>

@@ -21,19 +21,19 @@ export default function MetricsStrip({ items }: { items: MetricItem[] }) {
       {items.map((item) => (
         <div
           key={item.label}
-          className="flex flex-col justify-center bg-panel px-4 py-5 sm:px-5 sm:py-6"
+          className="flex min-w-0 flex-col justify-center bg-panel px-4 py-4 sm:px-5"
         >
-          <dt className="text-[0.6875rem] font-semibold uppercase tracking-wider text-faint">{item.label}</dt>
+          <dt className="text-[0.625rem] font-semibold uppercase tracking-wider text-faint">{item.label}</dt>
           <dd
             className={cn(
-              "mt-2 text-2xl font-bold tabular-nums tracking-tight sm:text-[1.75rem]",
+              "mt-1.5 break-words text-sm font-semibold tabular-nums leading-snug sm:text-base",
               toneColor[item.tone ?? "default"],
             )}
           >
             {item.value}
           </dd>
           {item.hint && (
-            <dd className="mt-1 min-h-[1rem] text-xs text-faint">{item.hint}</dd>
+            <dd className="mt-1 min-h-[1rem] truncate text-[0.6875rem] text-faint">{item.hint}</dd>
           )}
         </div>
       ))}

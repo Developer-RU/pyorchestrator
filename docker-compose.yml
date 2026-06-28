@@ -134,6 +134,27 @@ services:
       timeout: 5s
       retries: 5
 
+  mcp:
+    build:
+      context: ./mcp
+      dockerfile: Dockerfile
+    container_name: pyorch-mcp
+    restart: unless-stopped
+    ports:
+      - "${MCP_PORT:-8010}:8010"
+    environment:
+      PYORCH_API_URL: http://backend:8000
+      PYORCH_EMAIL: ${MCP_PYORCH_EMAIL:-admin@pyorchestrator.local}
+      PYORCH_PASSWORD: ${MCP_PYORCH_PASSWORD:-admin}
+      MCP_TRANSPORT: streamable-http
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: 8010
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - pyorch-net
+
   # ─── Data Layer ─────────────────────────────────────────────────────────────
 
   postgres:

@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.deps import get_current_user, require_permission
 from app.db.session import get_db
-from app.models.run import Schedule
+from app.models.run import Run, Schedule
 from app.models.script import Script
 from app.models.user import Group, User
 from app.schemas import GroupCreate, GroupResponse, GroupUpdate, ScheduleCreate, ScheduleResponse, ScheduleUpdate
@@ -161,5 +161,10 @@ async def delete_schedule(
     sched = result.scalar_one_or_none()
     if not sched:
         raise HTTPException(404, "Schedule not found")
+    await db.execute(update(Run).where(Run.schedule_id == schedule_id).values(schedule_id=None))
     await db.delete(sched)
+    try:
+        await db.flush()
+    except IntegrityError as exc:
+        raise HTTPException(409, "Cannot delete schedule: it is still referenced by other records") from exc
     await redis_service.publish(settings.scheduler_reload_channel, "reload")

@@ -30,7 +30,7 @@ class Script(Base, TimestampMixin):
 
     group: Mapped["Group"] = relationship(back_populates="scripts")
     files: Mapped[list["ScriptFile"]] = relationship(back_populates="script", cascade="all, delete-orphan")
-    runs: Mapped[list["Run"]] = relationship(back_populates="script")
+    runs: Mapped[list["Run"]] = relationship(back_populates="script", cascade="all, delete-orphan")
     schedules: Mapped[list["Schedule"]] = relationship(
         back_populates="script", cascade="all, delete-orphan", foreign_keys="Schedule.script_id"
     )
