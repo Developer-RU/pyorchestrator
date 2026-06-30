@@ -59,6 +59,7 @@ if [[ "$MODE" == "docker" || "$MODE" == "docker-replica" || "$DEPLOY_MODE" == "d
   HOST_ROOT="${UPDATE_HOST_PROJECT_ROOT:-${PYORCH_HOST_PROJECT_ROOT:-}}"
   if [[ -n "$HOST_ROOT" && "$HOST_ROOT" != "/deploy" ]]; then
     export PYORCH_HOST_PROJECT_ROOT="$HOST_ROOT"
+    export PYORCH_BUILD_ROOT="$PROJECT_ROOT"
   fi
   docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE" up -d --build --remove-orphans
 else

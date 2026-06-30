@@ -191,6 +191,7 @@ if [[ "$DEPLOY_MODE" == "docker" || "$DEPLOY_MODE" == "docker-replica" ]]; then
     exit 1
   fi
   export PYORCH_HOST_PROJECT_ROOT="$HOST_ROOT"
+  export PYORCH_BUILD_ROOT="$PROJECT_ROOT"
   docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE" pull --ignore-buildable 2>/dev/null || docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE" pull || true
   docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE" up -d --build --remove-orphans
 else

@@ -5,6 +5,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.6] - 2026-06-30
+
+### Fixed
+
+- OTA deploy: separate `PYORCH_BUILD_ROOT` (`/deploy` in updater) from `PYORCH_HOST_PROJECT_ROOT` (host bind mounts) so `docker compose build` works inside the update container
+
+[0.1.6]: https://github.com/PyOrchestrator/PyOrchestrator/releases/tag/v0.1.6
+
 ## [0.1.5] - 2026-06-30
 
 ### Changed

@@ -1,8 +1,8 @@
 # PyOrchestrator — Docker Compose stack
 name: pyorchestrator
 
-# Use host paths for bind mounts so OTA updates can run `docker compose` via docker.sock
-# from inside a container (Mac/Windows). When unset, `.` resolves relative to compose file on the host.
+# PYORCH_HOST_PROJECT_ROOT — host paths for bind mounts (Docker daemon).
+# PYORCH_BUILD_ROOT — paths readable by the compose client for image builds (OTA updater uses /deploy).
 
 x-common-env: &common-env
   POSTGRES_HOST: postgres
@@ -23,7 +23,7 @@ services:
 
   backend:
     build:
-      context: ${PYORCH_HOST_PROJECT_ROOT:-.}
+      context: ${PYORCH_BUILD_ROOT:-${PYORCH_HOST_PROJECT_ROOT:-.}}
       dockerfile: backend/Dockerfile
     container_name: pyorch-backend
     restart: unless-stopped
@@ -32,7 +32,7 @@ services:
     environment:
       <<: *common-env
       APP_ENV: ${APP_ENV:-development}
-      APP_VERSION: ${APP_VERSION:-0.1.5}
+      APP_VERSION: ${APP_VERSION:-0.1.6}
       JWT_SECRET: ${JWT_SECRET:-jwt-dev-secret-change-in-prod}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
       INTERNAL_API_KEY: ${INTERNAL_API_KEY:-internal-dev-key}
@@ -76,7 +76,7 @@ services:
 
   frontend:
     build:
-      context: ${PYORCH_HOST_PROJECT_ROOT:-.}/frontend
+      context: ${PYORCH_BUILD_ROOT:-${PYORCH_HOST_PROJECT_ROOT:-.}}/frontend
       dockerfile: Dockerfile
       target: ${FRONTEND_TARGET:-development}
     container_name: pyorch-frontend
@@ -98,7 +98,7 @@ services:
 
   runtime:
     build:
-      context: ${PYORCH_HOST_PROJECT_ROOT:-.}/runtime
+      context: ${PYORCH_BUILD_ROOT:-${PYORCH_HOST_PROJECT_ROOT:-.}}/runtime
       dockerfile: Dockerfile
     container_name: pyorch-runtime
     restart: unless-stopped
@@ -136,7 +136,7 @@ services:
 
   scheduler:
     build:
-      context: ${PYORCH_HOST_PROJECT_ROOT:-.}/scheduler
+      context: ${PYORCH_BUILD_ROOT:-${PYORCH_HOST_PROJECT_ROOT:-.}}/scheduler
       dockerfile: Dockerfile
     container_name: pyorch-scheduler
     restart: unless-stopped
@@ -161,7 +161,7 @@ services:
 
   mcp:
     build:
-      context: ${PYORCH_HOST_PROJECT_ROOT:-.}/mcp
+      context: ${PYORCH_BUILD_ROOT:-${PYORCH_HOST_PROJECT_ROOT:-.}}/mcp
       dockerfile: Dockerfile
     container_name: pyorch-mcp
     restart: unless-stopped
