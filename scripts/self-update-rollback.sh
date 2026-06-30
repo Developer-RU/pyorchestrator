@@ -56,7 +56,10 @@ else
 fi
 
 if [[ "$MODE" == "docker" || "$MODE" == "docker-replica" || "$DEPLOY_MODE" == "docker" || "$DEPLOY_MODE" == "docker-replica" ]]; then
-  export PYORCH_HOST_PROJECT_ROOT="${UPDATE_HOST_PROJECT_ROOT:-${PYORCH_HOST_PROJECT_ROOT:-$PWD}}"
+  HOST_ROOT="${UPDATE_HOST_PROJECT_ROOT:-${PYORCH_HOST_PROJECT_ROOT:-}}"
+  if [[ -n "$HOST_ROOT" && "$HOST_ROOT" != "/deploy" ]]; then
+    export PYORCH_HOST_PROJECT_ROOT="$HOST_ROOT"
+  fi
   docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE" up -d --build --remove-orphans
 else
   echo "Native rollback is not supported"

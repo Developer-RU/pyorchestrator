@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.4] - 2026-06-30
+
+### Fixed
+
+- OTA deploy on Docker Desktop (Mac/Windows): bind mounts use `PYORCH_HOST_PROJECT_ROOT` host paths so `docker compose` from the update container no longer fails with `mounts denied: /deploy/...`
+- Update script requires `UPDATE_HOST_PROJECT_ROOT` for deploy step (set automatically by the executor)
+
+[0.1.4]: https://github.com/PyOrchestrator/PyOrchestrator/releases/tag/v0.1.4
+
 ## [0.1.3] - 2026-06-30
 
 ### Fixed

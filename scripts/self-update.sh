@@ -185,7 +185,12 @@ set_step fetch completed "Checked out $TARGET_TAG"
 
 set_step deploy running "Rebuilding services"
 if [[ "$DEPLOY_MODE" == "docker" || "$DEPLOY_MODE" == "docker-replica" ]]; then
-  export PYORCH_HOST_PROJECT_ROOT="${UPDATE_HOST_PROJECT_ROOT:-${PYORCH_HOST_PROJECT_ROOT:-$PWD}}"
+  HOST_ROOT="${UPDATE_HOST_PROJECT_ROOT:-${PYORCH_HOST_PROJECT_ROOT:-}}"
+  if [[ -z "$HOST_ROOT" || "$HOST_ROOT" == "/deploy" ]]; then
+    echo "ERROR: UPDATE_HOST_PROJECT_ROOT must be set to the absolute host project path for Docker deploy"
+    exit 1
+  fi
+  export PYORCH_HOST_PROJECT_ROOT="$HOST_ROOT"
   docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE" pull --ignore-buildable 2>/dev/null || docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE" pull || true
   docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE" up -d --build --remove-orphans
 else
