@@ -16,6 +16,10 @@ x-common-env: &common-env
   MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
   MINIO_BUCKET: ${MINIO_BUCKET:-pyorchestrator}
   MINIO_CONSOLE_PORT: ${MINIO_CONSOLE_PORT:-9001}
+  MINIO_CONSOLE_ENABLED: ${MINIO_CONSOLE_ENABLED:-true}
+  MINIO_CONSOLE_PUBLIC_URL: ${MINIO_CONSOLE_PUBLIC_URL:-}
+  GRAFANA_PUBLIC_URL: ${GRAFANA_PUBLIC_URL:-}
+  GRAFANA_INTERNAL_URL: ${GRAFANA_INTERNAL_URL:-http://grafana:3000}
   SECRET_MASTER_KEY: ${SECRET_MASTER_KEY:-change-me-in-production-32chars!!}
 
 services:
@@ -32,7 +36,7 @@ services:
     environment:
       <<: *common-env
       APP_ENV: ${APP_ENV:-development}
-      APP_VERSION: ${APP_VERSION:-0.1.10}
+      APP_VERSION: ${APP_VERSION:-0.1.11}
       JWT_SECRET: ${JWT_SECRET:-jwt-dev-secret-change-in-prod}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
       INTERNAL_API_KEY: ${INTERNAL_API_KEY:-internal-dev-key}

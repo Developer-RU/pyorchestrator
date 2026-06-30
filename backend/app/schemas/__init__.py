@@ -346,7 +346,8 @@ class SystemConfigInfo(BaseModel):
     runtime_queue: str
     minio_bucket: str
     minio_endpoint: str
-    minio_console_url: str
+    minio_console_url: str | None = None
+    grafana_url: str | None = None
     cors_origins: list[str]
 
 
